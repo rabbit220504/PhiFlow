@@ -17,9 +17,9 @@ write = True
 readOnly, readIdx = False, 0
 render = False
 writeImageSequence = False
-BATCH = True
+BATCH = False   # True, False
 if BATCH:
-    batchSize = 3
+    batchSize = 32
 
 if BATCH:
     NP_NAMES = "batch,vector,x,y"
@@ -33,11 +33,11 @@ RES_X, RES_Y = 256, 128
 DT = 0.05
 STEPS, WARMUP = 800, 20
 
-CYL_SIZE = 0.6
+CYL_SIZE = 10 #%TODO
 WALL_TOP, WALL_BOTTOM = (7/6)*CYL_SIZE, (7/6)*CYL_SIZE
 WALL_LEFT, WALL_RIGHT = (7/6)*CYL_SIZE, 4.5*CYL_SIZE
 VEL_IN = 0.5
-VISC_START = 0.0005 # 0.0005,0.5,1,4->more chaotic
+VISC_START = 0.0005 # 
 VISC_END = 0.0005
 
 #VEL = VEL_IN * CYL_SIZE # use when changing cyl size
@@ -104,8 +104,8 @@ extr = extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.ZER
 if BATCH:
     velocity = StaggeredGrid(math.zeros(batch(batch=batchSize)), extrapolation=extr, **DOMAIN)
 else:
-    velocity = StaggeredGrid((VEL,0), extrapolation=extr, **DOMAIN)
-#velocity = StaggeredGrid((0,0), extrapolation=extr, **DOMAIN)
+    # velocity = StaggeredGrid((VEL,0), extrapolation=extr, **DOMAIN)
+    velocity = StaggeredGrid((0,0), extrapolation=extr, **DOMAIN)
 pressure = None
 BOUNDARY_MASK = StaggeredGrid(HardGeometryMask(Box[:0.2*CYL_SIZE, :]), extrapolation=extr, **DOMAIN)
 OBSTACLE = Obstacle(Sphere(center=(WALL_LEFT + 0.5*CYL_SIZE, WALL_BOTTOM + 0.5*CYL_SIZE), radius=0.5*CYL_SIZE))
@@ -117,14 +117,18 @@ RESAMPLING_STAGGERED = StaggeredGrid(math.zeros(channel(vector=2)), extrapolatio
 # Initialize velocity
 if BATCH:
     VEL_INIT = np.ones((batchSize, 2, RES_X, RES_Y))
-    for _ in range(0, batchSize):
-        VEL_INIT[_] = VEL_INIT[_] + _
+    VEL_INIT = np.random.uniform(0.5, 2, (batchSize, 2, RES_X, RES_Y))
+    # for _ in range(0, batchSize):
+    #     VEL_INIT[_] = VEL_INIT[_] + (_ * 0.05)
+
     VEL_INIT = CenteredGrid(tensor(VEL_INIT, batch("batch"), channel("vector"), spatial("x", "y")),extrapolation=extr, **DOMAIN)
+
 else:
+    # different initial velocity options
     # VEL_INIT = 0.5 * (np.cos( math.PI * np.arange(0,1,1/RES_Y)[None,...]) + 1) # cosine
-    VEL_INIT = np.ones((1,RES_Y))   # constant
+    VEL_INIT = 1 * np.ones((1,RES_Y))   # constant
     VEL_INIT = np.repeat(VEL_INIT, RES_X, axis=0)   
-    VEL_INIT = np.stack([VEL_INIT, np.zeros_like(VEL_INIT)], axis=0)
+    VEL_INIT = np.stack([VEL_INIT, 2*np.ones_like(VEL_INIT)], axis=0)
     VEL_INIT = CenteredGrid(tensor(VEL_INIT, channel("vector"), spatial("x", "y")),extrapolation=extr, **DOMAIN)
 VEL_INIT = StaggeredGrid(VEL_INIT @ RESAMPLING_STAGGERED, extrapolation=extr, **DOMAIN)
 #
@@ -166,25 +170,23 @@ for step in viewer.range(STEPS):
 
         # preview image
         # velNp = (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)
-        # # maxVelocityMag = np.max(np.sqrt(velNp[0,0,...]*velNp[0,1,...] + velNp[1]*velNp[1]))
-        # # if maxVelocityMag > 10*VEL:
-        # #     print("WARNING: Unusual velocity magnitude detected!")
-
         # if step > 0:
         #     velNp = np.transpose(velNp, axes=TRANSPOSE)
-        #     for batch_idx in range(velNp.shape[0]):  # Batch dimension
+        #     if BATCH:
+        #         for batch_idx in range(velNp.shape[0]):  # Batch dimension
+        #             for i in range(velNp.shape[-1]):
+        #                 velPart = velNp[batch_idx, ..., i]
+        #                 vMax = max(abs(np.min(velPart)), abs(np.max(velPart)))
+        #                 vMin = -vMax
+        #                 velPart = 255*((velPart - vMin) / (vMax - vMin))
+        #                 imageio.imwrite(f"{scene.path}/preview_batch{batch_idx:02d}_step_{step}_{'X' if i == 0 else 'Y'}.png", velPart.astype(np.uint8))   
+        #     else:
         #         for i in range(velNp.shape[-1]):
-        #             velPart = velNp[batch_idx, ..., i]
-                    
-        #             vMax = np.max(velPart)
-        #             vMin = np.min(velPart)
-        #             velPartNorm = 2 * (velPart - vMin) / (vMax - vMin) - 1
-                    
-        #             color_image = np.zeros((*velPart.shape, 3), dtype=np.uint8)
-        #             color_image[..., 0] = np.clip(255 * (velPartNorm + 1) / 2, 0, 255)  # Red channel for positive values
-        #             color_image[..., 2] = np.clip(255 * (1 - velPartNorm) / 2, 0, 255)  # Blue channel for negative values
-                    
-        #             imageio.imwrite(f"data/{1}_preview_step_{step}_batch{batch_idx:02d}_{'X' if i == 0 else 'Y'}.png", color_image)                    
+        #             velPart = velNp[..., i]
+        #             vMax = max(abs(np.min(velPart)), abs(np.max(velPart)))
+        #             vMin = -vMax
+        #             velPart = 255*((velPart - vMin) / (vMax - vMin))
+        #             imageio.imwrite(f"{scene.path}/preview_step_{step}_{'X' if i == 0 else 'Y'}.png", velPart.astype(np.uint8))
         #
 
         if write:
@@ -192,16 +194,20 @@ for step in viewer.range(STEPS):
             velNp = (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)
             presNp = pressure.values.numpy(NP_NAMES)
 
-            # write velocity
-            for batch_idx in range(velNp.shape[0]):
-                velNPBatch = velNp[batch_idx].astype(np.float32)
-                utils.vecNP2vtk(os.path.join(scene.path,'vtk'), velNPBatch, step)
-            #
-
-            # write pressure
-            # for batch_idx in range(presNp.shape[0]):
-            #     presNpBatch = presNp[batch_idx].astype(np.float32)
-            #     utils.scalarNP2vtk(os.path.join(scene.path,'vtk'), presNpBatch, step)
+            # write velocity and pressure
+            if BATCH:
+                for batch_idx in range(velNp.shape[0]):
+                    velNPBatch = velNp[batch_idx].astype(np.float32)
+                    presNpBatch = presNp[batch_idx].astype(np.float32)
+                    np.savez_compressed( os.path.join(scene.path, f"{batch_idx}_velocity_%06d.npz" % step), velNPBatch)
+                    np.savez_compressed( os.path.join(scene.path, f"{batch_idx}_pressure_%06d.npz" % step), presNpBatch)
+                    # utils.np2vtk(os.path.join(scene.path,f'vtk_{batch_idx}'), velNPBatch, presNpBatch, step)
+            else:
+                velNp = velNp.astype(np.float32)
+                presNp = presNp.astype(np.float32)
+                np.savez_compressed( os.path.join(scene.path, "velocity_%06d.npz" % step), velNp)
+                np.savez_compressed( os.path.join(scene.path, "pressure_%06d.npz" % step), presNp)
+                # utils.np2vtk(os.path.join(scene.path,f'vtk'), velNp, presNp, step)
             #
 
             # obstacle mask
@@ -218,8 +224,8 @@ for step in viewer.range(STEPS):
         velocity = StaggeredGrid(velGrid @ RESAMPLING_STAGGERED, extrapolation=extr, **DOMAIN)
         pressure = CenteredGrid(tensor(presNp, channel("vector"), spatial("x", "y")), extrapolation=extr, **DOMAIN)
 
-    recVel += [velNp]
-    recPres += [presNp]
+    # recVel += [velNp]
+    # recPres += [presNp]
 
 # recVel = np.transpose(np.stack(recVel, axis=0), axes=[0,2,3,1])
 # recPres = np.transpose(np.stack(recPres, axis=0), axes=[0,2,3,1])
