@@ -6,20 +6,24 @@ import os, sys, json, time, datetime
 import imageio, matplotlib
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
+import numpy as np
+np.bool = np.bool_
+np.object = np.object_
+np.int = np.int_
 from phi.torch.flow import *
 phi.torch.TORCH.set_default_device("GPU")
 
-sys.path.insert(0, '/home/wangx84@vuds.vanderbilt.edu/Desktop/PhiFlow')
+sys.path.insert(0, '/home/wangx84@vuds.vanderbilt.edu/Desktop/LDAV/PhiFlow')
 import utils
 
-dataDir = "data/256_inc_consInitial"
+dataDir = "PhiFlow/data/cos_init"
 write = True
 readOnly, readIdx = False, 0
 render = False
 writeImageSequence = False
 BATCH = False   # True, False
 if BATCH:
-    batchSize = 32
+    batchSize = 3
 
 if BATCH:
     NP_NAMES = "batch,vector,x,y"
@@ -31,9 +35,9 @@ else:
 ### DEFAULT SIMULATION PARAMETERS
 RES_X, RES_Y = 256, 128
 DT = 0.05
-STEPS, WARMUP = 800, 20
+STEPS, WARMUP = 1300, 20
 
-CYL_SIZE = 10 #%TODO
+CYL_SIZE = 0.5 #%TODO
 WALL_TOP, WALL_BOTTOM = (7/6)*CYL_SIZE, (7/6)*CYL_SIZE
 WALL_LEFT, WALL_RIGHT = (7/6)*CYL_SIZE, 4.5*CYL_SIZE
 VEL_IN = 0.5
@@ -44,6 +48,8 @@ VISC_END = 0.0005
 VEL = VEL_IN
 REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
 REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
+# REYNOLDS_START = 888
+# REYNOLDS_END = 888
 
 ### ARGUMENT PARSING
 gui = "console"
@@ -294,32 +300,32 @@ if render:
             imageio.imwrite(os.path.join(renderpath, imgfile), result[i])
 #
 
-### LOGGING
-# if not readOnly:
-#     log = {}
+## LOGGING
+if not readOnly:
+    log = {}
 
-#     log["Timestamp"] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-#     log["Resolution"] = [RES_X, RES_Y]
-#     log["Dt"] = DT
-#     log["Steps, Warmup"] = [STEPS, WARMUP]
-#     log["Cylinder Size"] = CYL_SIZE
-#     log["Walls (lrtb)"] = [WALL_LEFT, WALL_RIGHT, WALL_TOP, WALL_BOTTOM]
-#     log["Inflow Velocity"] = VEL
-#     log["Fluid Viscosity"] = VISC_START if REYNOLDS_START == REYNOLDS_END else recVisc
-#     log["Reynolds Number"] = REYNOLDS_START if REYNOLDS_START == REYNOLDS_END else recRey
-#     log["Stats"] = {"Velocity" : [], "Velocity Magnitude" : [], "Pressure" : []}
+    log["Timestamp"] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log["Resolution"] = [RES_X, RES_Y]
+    log["Dt"] = DT
+    log["Steps, Warmup"] = [STEPS, WARMUP]
+    log["Cylinder Size"] = CYL_SIZE
+    log["Walls (lrtb)"] = [WALL_LEFT, WALL_RIGHT, WALL_TOP, WALL_BOTTOM]
+    log["Inflow Velocity"] = VEL
+    log["Fluid Viscosity"] = VISC_START if REYNOLDS_START == REYNOLDS_END else recVisc
+    log["Reynolds Number"] = REYNOLDS_START if REYNOLDS_START == REYNOLDS_END else recRey
+    log["Stats"] = {"Velocity" : [], "Velocity Magnitude" : [], "Pressure" : []}
 
-#     recVelMag = np.linalg.norm(recVel, axis=-1)
-#     for i in range(recVel.shape[0]):
-#         log["Stats"]["Velocity"].append( "Min:%2.8f Max:%2.8f Avg: %2.8f" % (np.min(recVel[i]), np.max(recVel[i]), np.mean(recVel[i])) )
-#         log["Stats"]["Velocity Magnitude"].append( "Min:%2.8f Max:%2.8f Avg: %2.8f" % (np.min(recVelMag[i]), np.max(recVelMag[i]), np.mean(recVelMag[i])) )
-#         log["Stats"]["Pressure"].append( "Min:%2.8f Max:%2.8f Avg: %2.8f" % (np.min(recPres[i]), np.max(recPres[i]), np.mean(recPres[i])) )
+    recVelMag = np.linalg.norm(recVel, axis=-1)
+    # for i in range(recVel.shape[0]):
+    #     log["Stats"]["Velocity"].append( "Min:%2.8f Max:%2.8f Avg: %2.8f" % (np.min(recVel[i]), np.max(recVel[i]), np.mean(recVel[i])) )
+    #     log["Stats"]["Velocity Magnitude"].append( "Min:%2.8f Max:%2.8f Avg: %2.8f" % (np.min(recVelMag[i]), np.max(recVelMag[i]), np.mean(recVelMag[i])) )
+    #     log["Stats"]["Pressure"].append( "Min:%2.8f Max:%2.8f Avg: %2.8f" % (np.min(recPres[i]), np.max(recPres[i]), np.mean(recPres[i])) )
 
-#     if not readOnly:
-#         logFile = os.path.join(scene.path, "src", "description.json")
-#         with open(logFile, 'w') as f:
-#             json.dump(log, f, indent=4)
-#             f.close()
+    if not readOnly:
+        logFile = os.path.join(scene.path, "src", "description.json")
+        with open(logFile, 'w') as f:
+            json.dump(log, f, indent=4)
+            f.close()
 #
 
 print("Simulation complete\n\n")
