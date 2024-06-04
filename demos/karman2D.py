@@ -16,7 +16,7 @@ phi.torch.TORCH.set_default_device("GPU")
 sys.path.insert(0, '/home/wangx84@vuds.vanderbilt.edu/Desktop/LDAV/PhiFlow')
 import utils
 
-dataDir = "PhiFlow/data/cos_init"
+dataDir = "data/cos_init"
 write = True
 readOnly, readIdx = False, 0
 render = False
@@ -35,10 +35,10 @@ else:
 ### DEFAULT SIMULATION PARAMETERS
 RES_X, RES_Y = 256, 128
 DT = 0.05
-STEPS, WARMUP = 1300, 20
+STEPS, WARMUP = 500, 20
 
-CYL_SIZE = 0.5 #%TODO
-WALL_TOP, WALL_BOTTOM = (7/6)*CYL_SIZE, (7/6)*CYL_SIZE
+CYL_SIZE = 0.6
+WALL_TOP, WALL_BOTTOM = (13/6)*CYL_SIZE, (1/6)*CYL_SIZE
 WALL_LEFT, WALL_RIGHT = (7/6)*CYL_SIZE, 4.5*CYL_SIZE
 VEL_IN = 0.5
 VISC_START = 0.0005 # 
