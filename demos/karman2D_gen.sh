@@ -1,8 +1,7 @@
 scriptPath="demos/karman2D.py"
 
 # python $scriptPath OUTDIR  RES_X RES_Y DT  STEPS WARMUP  CYL_SIZE VEL VISC  REYNOLDS_START REYNOLDS_END
-reynolds=$(seq 1000 -16 200)
-for rey in $reynolds;
+for ((i=1; i<=390; i++))
 do
-    python $scriptPath 1300_inc  256 128 0.05  1300 20  0.6 0.5 -  $rey $rey
+    python $scriptPath
 done

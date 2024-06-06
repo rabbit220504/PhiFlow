@@ -2,6 +2,7 @@
 Simulates a viscous fluid flowing around a cylinder.
 """
 
+import random
 import os, sys, json, time, datetime
 import imageio, matplotlib
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -11,19 +12,21 @@ np.bool = np.bool_
 np.object = np.object_
 np.int = np.int_
 from phi.torch.flow import *
+from phi.flow import *
 phi.torch.TORCH.set_default_device("GPU")
 
 sys.path.insert(0, '/home/wangx84@vuds.vanderbilt.edu/Desktop/LDAV/PhiFlow')
 import utils
 
-dataDir = "data/cos_init"
+dataDir = "data/600_inc"
 write = True
 readOnly, readIdx = False, 0
 render = False
 writeImageSequence = False
-BATCH = False   # True, False
-if BATCH:
-    batchSize = 3
+BATCH = False   
+RANDOM_PARAMS = True
+PREVIEW = True
+batchSize = 3
 
 if BATCH:
     NP_NAMES = "batch,vector,x,y"
@@ -35,59 +38,76 @@ else:
 ### DEFAULT SIMULATION PARAMETERS
 RES_X, RES_Y = 256, 128
 DT = 0.05
-STEPS, WARMUP = 500, 20
+STEPS, WARMUP = 500, 0
 
-CYL_SIZE = 0.6
-WALL_TOP, WALL_BOTTOM = (13/6)*CYL_SIZE, (1/6)*CYL_SIZE
-WALL_LEFT, WALL_RIGHT = (7/6)*CYL_SIZE, 4.5*CYL_SIZE
+CYL_SIZE = 0.2
+WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
+WALL_LEFT, WALL_RIGHT = (1/8)*(4-CYL_SIZE), (7/8)*(4-CYL_SIZE)
 VEL_IN = 0.5
 VISC_START = 0.0005 # 
 VISC_END = 0.0005
 
-#VEL = VEL_IN * CYL_SIZE # use when changing cyl size
 VEL = VEL_IN
 REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
 REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
-# REYNOLDS_START = 888
-# REYNOLDS_END = 888
 
-### ARGUMENT PARSING
 gui = "console"
-#gui = "dash"
-if len(sys.argv) == 12:
-    dataDir = "data/%s" % sys.argv[1]
-    RES_X = int(sys.argv[2])
-    RES_Y = int(sys.argv[3])
-    DT = float(sys.argv[4])
-    STEPS = int(sys.argv[5])
-    WARMUP = int(sys.argv[6])
-    CYL_SIZE = float(sys.argv[7])
-    VEL_IN = float(sys.argv[8])
+#
 
-    WALL_TOP, WALL_BOTTOM = (7/6)*CYL_SIZE, (7/6)*CYL_SIZE
-    WALL_LEFT, WALL_RIGHT = (7/6)*CYL_SIZE, 4.5*CYL_SIZE
+### PARAMETER SAMPLING
+if RANDOM_PARAMS:
+    CYL_NUM = torch.randint(1, 4, (1,)).item()
+    # size
+    CYL_SIZE = random.uniform(0.3, 0.7)
+    WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
+    WALL_LEFT, WALL_RIGHT = (1/8)*(4-CYL_SIZE), (7/8)*(4-CYL_SIZE)
+    # locations
+    BUFFER_V = 2 * 1/8  # buffer on the top and bottom
+    BUFFER_HL = 4 * 1/16  # buffer on the left
+    BUFFER_HR = 4 * 9/16  # buffer on the right
+    MAX_ITERATIONS = 1000
+    cyl_locations = []
+    for _ in range(CYL_NUM):
+        iterations = 0
+        while iterations < MAX_ITERATIONS:
+            x = random.uniform(BUFFER_HL+(CYL_SIZE/2), 4 - BUFFER_HR - (CYL_SIZE/2))
+            y = random.uniform(BUFFER_V+(CYL_SIZE/2), 2 - BUFFER_V - (CYL_SIZE/2))
+            
+            overlap = False
+            for loc in cyl_locations:
+                if (x - loc[0])**2 + (y - loc[1])**2 < CYL_SIZE**2:
+                    overlap = True
+                    break
+            
+            if not overlap:
+                cyl_locations.append((x, y))
+                break
 
-    if sys.argv[9] != "-":
-        VISC_START = float(sys.argv[9])
-        VISC_END = float(sys.argv[9])
-        #VEL = VEL_IN * CYL_SIZE
-        VEL = VEL_IN
-        REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
-        REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
+            iterations += 1
+        
+        if iterations == MAX_ITERATIONS:
+            print("Failed to find non-overlapping cylinder location")
+            sys.exit(1)
 
-    if sys.argv[10] != "-" and sys.argv[11] != "-":
-        REYNOLDS_START = float(sys.argv[10])
-        REYNOLDS_END = float(sys.argv[11])
-        #VEL = VEL_IN * CYL_SIZE
-        VEL = VEL_IN
-        VISC_START = (VEL * CYL_SIZE) / REYNOLDS_START
-        VISC_END = (VEL * CYL_SIZE) / REYNOLDS_END
-
-    gui = "console"
-else:
-    print("WARNING: No parameter arguments!")
-    #os._exit(-1)
-
+    print("cylinder locations determined")
+    # velocity
+    VEL = random.uniform(0.3, 1.0)
+    # viscosity
+    REYNOLDS_MIN = 200
+    REYNOLDS_MAX = 1000
+    REYNOLDS_START = VEL * CYL_SIZE / VISC_START
+    REYNOLDS_END = REYNOLDS_START
+    if REYNOLDS_END < REYNOLDS_MIN:
+        VISC_START = VEL * CYL_SIZE / REYNOLDS_MIN
+        VISC_END = VISC_START
+        REYNOLDS_START = REYNOLDS_MIN
+        REYNOLDS_END = REYNOLDS_END
+    elif REYNOLDS_END > REYNOLDS_MAX:
+        VISC_START = VEL * CYL_SIZE / REYNOLDS_MAX
+        VISC_END = VISC_START
+        REYNOLDS_START = REYNOLDS_MAX
+        REYNOLDS_END = REYNOLDS_START
+#
 
 print("--------------------------------------------")
 print("| Resolution: (%d, %d)" % (RES_X, RES_Y))
@@ -97,8 +117,10 @@ print("| Cylinder Size: %1.3f" % (CYL_SIZE))
 print("| Inflow Velocity: %1.3f" % (VEL))
 print("| Fluid Viscosity: (%1.8f, %1.8f)" % (VISC_START, VISC_END))
 print("| REYNOLDS NUMBER: (%d, %d)" % (REYNOLDS_START, REYNOLDS_END))
+if RANDOM_PARAMS:
+    print("| Cylinder Number: %d" % (CYL_NUM))
+    print("| Cylinder Locations: %s" % (cyl_locations))
 print("--------------------------------------------\n")
-#os._exit(-1)
 
 
 
@@ -114,7 +136,12 @@ else:
     velocity = StaggeredGrid((0,0), extrapolation=extr, **DOMAIN)
 pressure = None
 BOUNDARY_MASK = StaggeredGrid(HardGeometryMask(Box[:0.2*CYL_SIZE, :]), extrapolation=extr, **DOMAIN)
-OBSTACLE = Obstacle(Sphere(center=(WALL_LEFT + 0.5*CYL_SIZE, WALL_BOTTOM + 0.5*CYL_SIZE), radius=0.5*CYL_SIZE))
+# single cylinder
+# OBSTACLE = Obstacle(Sphere(center=(WALL_LEFT + 0.5*CYL_SIZE, WALL_BOTTOM + 0.5*CYL_SIZE), radius=0.5*CYL_SIZE))
+# multiple cylinders
+OBSTACLE_GEOMETRIES = [Sphere(center=(cyl_locations[i][0], cyl_locations[i][1]), radius=0.5*CYL_SIZE) for i in range(len(cyl_locations))]
+OBSTACLE = Obstacle(union(OBSTACLE_GEOMETRIES))
+
 OBS_MASK = StaggeredGrid(OBSTACLE.geometry, extrapolation=extrapolation.ZERO, **DOMAIN)
 
 RESAMPLING_CENTERED = CenteredGrid(0, extrapolation=extr, **DOMAIN)
@@ -151,7 +178,8 @@ recVisc = []
 recRey = []
 
 for step in viewer.range(STEPS):
-    print("\t%s Frame %04d" % ("Reading" if readOnly else "Simulating", step))
+    if step%10 == 0:
+        print("\t%s Frame %04d" % ("Reading" if readOnly else "Simulating", step))
 
     startReyChange = 300
     if REYNOLDS_START == REYNOLDS_END or step < startReyChange:
@@ -174,26 +202,27 @@ for step in viewer.range(STEPS):
         velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve("CG-adaptive", 1e-5, 0, max_iterations=2000, x0=pressure))
         velocity = diffuse.explicit(velocity, visc, DT, substeps=int(max(2000*visc,1)))
 
-        # preview image
-        # velNp = (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)
-        # if step > 0:
-        #     velNp = np.transpose(velNp, axes=TRANSPOSE)
-        #     if BATCH:
-        #         for batch_idx in range(velNp.shape[0]):  # Batch dimension
-        #             for i in range(velNp.shape[-1]):
-        #                 velPart = velNp[batch_idx, ..., i]
-        #                 vMax = max(abs(np.min(velPart)), abs(np.max(velPart)))
-        #                 vMin = -vMax
-        #                 velPart = 255*((velPart - vMin) / (vMax - vMin))
-        #                 imageio.imwrite(f"{scene.path}/preview_batch{batch_idx:02d}_step_{step}_{'X' if i == 0 else 'Y'}.png", velPart.astype(np.uint8))   
-        #     else:
-        #         for i in range(velNp.shape[-1]):
-        #             velPart = velNp[..., i]
-        #             vMax = max(abs(np.min(velPart)), abs(np.max(velPart)))
-        #             vMin = -vMax
-        #             velPart = 255*((velPart - vMin) / (vMax - vMin))
-        #             imageio.imwrite(f"{scene.path}/preview_step_{step}_{'X' if i == 0 else 'Y'}.png", velPart.astype(np.uint8))
-        #
+        if PREVIEW:
+            # preview image
+            velNp = (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)
+            if step == 0:
+                velNp = np.transpose(velNp, axes=TRANSPOSE)
+                if BATCH:
+                    for batch_idx in range(velNp.shape[0]):  # Batch dimension
+                        for i in range(velNp.shape[-1]):
+                            velPart = velNp[batch_idx, ..., i]
+                            vMax = max(abs(np.min(velPart)), abs(np.max(velPart)))
+                            vMin = -vMax
+                            velPart = 255*((velPart - vMin) / (vMax - vMin))
+                            imageio.imwrite(f"{scene.path}/preview_batch{batch_idx:02d}_step_{step}_{'X' if i == 0 else 'Y'}.png", velPart.astype(np.uint8))   
+                else:
+                    for i in range(velNp.shape[-1]):
+                        velPart = velNp[..., i]
+                        vMax = max(abs(np.min(velPart)), abs(np.max(velPart)))
+                        vMin = -vMax
+                        velPart = 255*((velPart - vMin) / (vMax - vMin))
+                        imageio.imwrite(f"{scene.path}/preview_step_{step}_{'X' if i == 0 else 'Y'}.png", velPart.astype(np.uint8))
+            #
 
         if write:
             # write simulation data
@@ -206,14 +235,14 @@ for step in viewer.range(STEPS):
                     velNPBatch = velNp[batch_idx].astype(np.float32)
                     presNpBatch = presNp[batch_idx].astype(np.float32)
                     np.savez_compressed( os.path.join(scene.path, f"{batch_idx}_velocity_%06d.npz" % step), velNPBatch)
-                    np.savez_compressed( os.path.join(scene.path, f"{batch_idx}_pressure_%06d.npz" % step), presNpBatch)
+                    # np.savez_compressed( os.path.join(scene.path, f"{batch_idx}_pressure_%06d.npz" % step), presNpBatch)
                     # utils.np2vtk(os.path.join(scene.path,f'vtk_{batch_idx}'), velNPBatch, presNpBatch, step)
             else:
                 velNp = velNp.astype(np.float32)
                 presNp = presNp.astype(np.float32)
                 np.savez_compressed( os.path.join(scene.path, "velocity_%06d.npz" % step), velNp)
-                np.savez_compressed( os.path.join(scene.path, "pressure_%06d.npz" % step), presNp)
-                # utils.np2vtk(os.path.join(scene.path,f'vtk'), velNp, presNp, step)
+                # np.savez_compressed( os.path.join(scene.path, "pressure_%06d.npz" % step), presNp)
+                # utils.np2vtk(os.path.join(scene.pasth,f'vtk'), velNp, presNp, step)
             #
 
             # obstacle mask
@@ -309,6 +338,8 @@ if not readOnly:
     log["Dt"] = DT
     log["Steps, Warmup"] = [STEPS, WARMUP]
     log["Cylinder Size"] = CYL_SIZE
+    log["Cylinder Number"] = CYL_NUM
+    log["Cylinder Locations"] = cyl_locations
     log["Walls (lrtb)"] = [WALL_LEFT, WALL_RIGHT, WALL_TOP, WALL_BOTTOM]
     log["Inflow Velocity"] = VEL
     log["Fluid Viscosity"] = VISC_START if REYNOLDS_START == REYNOLDS_END else recVisc
