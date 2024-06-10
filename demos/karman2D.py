@@ -18,7 +18,7 @@ phi.torch.TORCH.set_default_device("GPU")
 sys.path.insert(0, '/home/wangx84@vuds.vanderbilt.edu/Desktop/LDAV/PhiFlow')
 import utils
 
-dataDir = "data/600_inc"
+dataDir = "data/locVay_inc_"
 write = True
 readOnly, readIdx = False, 0
 render = False
@@ -38,7 +38,7 @@ else:
 ### DEFAULT SIMULATION PARAMETERS
 RES_X, RES_Y = 256, 128
 DT = 0.05
-STEPS, WARMUP = 500, 0
+STEPS, WARMUP = 300, 0
 
 CYL_SIZE = 0.2
 WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
@@ -48,17 +48,21 @@ VISC_START = 0.0005 #
 VISC_END = 0.0005
 
 VEL = VEL_IN
-REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
-REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
+# REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
+# REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
+REYNOLDS_START = 600
+REYNOLDS_END = 600
 
 gui = "console"
 #
 
 ### PARAMETER SAMPLING
 if RANDOM_PARAMS:
-    CYL_NUM = torch.randint(1, 4, (1,)).item()
+    # CYL_NUM = torch.randint(1, 4, (1,)).item()
+    CYL_NUM = 1
     # size
-    CYL_SIZE = random.uniform(0.3, 0.7)
+    # CYL_SIZE = random.uniform(0.3, 0.7)
+    CYL_SIZE = 0.5
     WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
     WALL_LEFT, WALL_RIGHT = (1/8)*(4-CYL_SIZE), (7/8)*(4-CYL_SIZE)
     # locations
@@ -91,22 +95,25 @@ if RANDOM_PARAMS:
 
     print("cylinder locations determined")
     # velocity
-    VEL = random.uniform(0.3, 1.0)
+    # VEL = random.uniform(0.3, 1.0)
+    VEL = 0.5
     # viscosity
-    REYNOLDS_MIN = 200
-    REYNOLDS_MAX = 1000
-    REYNOLDS_START = VEL * CYL_SIZE / VISC_START
-    REYNOLDS_END = REYNOLDS_START
-    if REYNOLDS_END < REYNOLDS_MIN:
-        VISC_START = VEL * CYL_SIZE / REYNOLDS_MIN
-        VISC_END = VISC_START
-        REYNOLDS_START = REYNOLDS_MIN
-        REYNOLDS_END = REYNOLDS_END
-    elif REYNOLDS_END > REYNOLDS_MAX:
-        VISC_START = VEL * CYL_SIZE / REYNOLDS_MAX
-        VISC_END = VISC_START
-        REYNOLDS_START = REYNOLDS_MAX
-        REYNOLDS_END = REYNOLDS_START
+    # REYNOLDS_MIN = 200
+    # REYNOLDS_MAX = 1000
+    # REYNOLDS_START = VEL * CYL_SIZE / VISC_START
+    # REYNOLDS_END = REYNOLDS_START
+    # if REYNOLDS_END < REYNOLDS_MIN:
+    #     VISC_START = VEL * CYL_SIZE / REYNOLDS_MIN
+    #     VISC_END = VISC_START
+    #     REYNOLDS_START = REYNOLDS_MIN
+    #     REYNOLDS_END = REYNOLDS_END
+    # elif REYNOLDS_END > REYNOLDS_MAX:
+    #     VISC_START = VEL * CYL_SIZE / REYNOLDS_MAX
+    #     VISC_END = VISC_START
+    #     REYNOLDS_START = REYNOLDS_MAX
+    #     REYNOLDS_END = REYNOLDS_START
+    VISC_START = CYL_SIZE * VEL / REYNOLDS_END
+    VISC_END = VISC_START
 #
 
 print("--------------------------------------------")
