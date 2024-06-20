@@ -18,12 +18,12 @@ phi.torch.TORCH.set_default_device("GPU")
 sys.path.insert(0, '/home/wangx84@vuds.vanderbilt.edu/Desktop/LDAV/PhiFlow')
 import utils
 
-dataDir = "data/locVay_inc_"
+dataDir = "data/cylVar_inc"
 write = True
 readOnly, readIdx = False, 0
 render = False
 writeImageSequence = False
-BATCH = False   
+BATCH = True   
 RANDOM_PARAMS = True
 PREVIEW = True
 batchSize = 3
@@ -40,7 +40,7 @@ RES_X, RES_Y = 256, 128
 DT = 0.05
 STEPS, WARMUP = 300, 0
 
-CYL_SIZE = 0.2
+CYL_SIZE = 0.5
 WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
 WALL_LEFT, WALL_RIGHT = (1/8)*(4-CYL_SIZE), (7/8)*(4-CYL_SIZE)
 VEL_IN = 0.5
@@ -58,11 +58,11 @@ gui = "console"
 
 ### PARAMETER SAMPLING
 if RANDOM_PARAMS:
-    # CYL_NUM = torch.randint(1, 4, (1,)).item()
-    CYL_NUM = 1
+    CYL_NUM = torch.randint(1, 4, (1,)).item()
+    # CYL_NUM = 1
     # size
-    # CYL_SIZE = random.uniform(0.3, 0.7)
-    CYL_SIZE = 0.5
+    CYL_SIZE = random.uniform(0.3, 0.6)
+    # CYL_SIZE = 0.5
     WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
     WALL_LEFT, WALL_RIGHT = (1/8)*(4-CYL_SIZE), (7/8)*(4-CYL_SIZE)
     # locations
@@ -98,20 +98,6 @@ if RANDOM_PARAMS:
     # VEL = random.uniform(0.3, 1.0)
     VEL = 0.5
     # viscosity
-    # REYNOLDS_MIN = 200
-    # REYNOLDS_MAX = 1000
-    # REYNOLDS_START = VEL * CYL_SIZE / VISC_START
-    # REYNOLDS_END = REYNOLDS_START
-    # if REYNOLDS_END < REYNOLDS_MIN:
-    #     VISC_START = VEL * CYL_SIZE / REYNOLDS_MIN
-    #     VISC_END = VISC_START
-    #     REYNOLDS_START = REYNOLDS_MIN
-    #     REYNOLDS_END = REYNOLDS_END
-    # elif REYNOLDS_END > REYNOLDS_MAX:
-    #     VISC_START = VEL * CYL_SIZE / REYNOLDS_MAX
-    #     VISC_END = VISC_START
-    #     REYNOLDS_START = REYNOLDS_MAX
-    #     REYNOLDS_END = REYNOLDS_START
     VISC_START = CYL_SIZE * VEL / REYNOLDS_END
     VISC_END = VISC_START
 #
@@ -143,6 +129,12 @@ else:
     velocity = StaggeredGrid((0,0), extrapolation=extr, **DOMAIN)
 pressure = None
 BOUNDARY_MASK = StaggeredGrid(HardGeometryMask(Box[:0.2*CYL_SIZE, :]), extrapolation=extr, **DOMAIN)
+RESAMPLING_CENTERED = CenteredGrid(0, extrapolation=extr, **DOMAIN)
+RESAMPLING_STAGGERED = StaggeredGrid(math.zeros(channel(vector=2)), extrapolation=extr, **DOMAIN)
+print("shape of boundary mask", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES).shape)
+print("inside the boundary", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[0,0,0,0])
+print("outside the boundary", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[0,0,100,20])
+
 # single cylinder
 # OBSTACLE = Obstacle(Sphere(center=(WALL_LEFT + 0.5*CYL_SIZE, WALL_BOTTOM + 0.5*CYL_SIZE), radius=0.5*CYL_SIZE))
 # multiple cylinders
@@ -151,10 +143,7 @@ OBSTACLE = Obstacle(union(OBSTACLE_GEOMETRIES))
 
 OBS_MASK = StaggeredGrid(OBSTACLE.geometry, extrapolation=extrapolation.ZERO, **DOMAIN)
 
-RESAMPLING_CENTERED = CenteredGrid(0, extrapolation=extr, **DOMAIN)
-RESAMPLING_STAGGERED = StaggeredGrid(math.zeros(channel(vector=2)), extrapolation=extr, **DOMAIN)
-
-# Initialize velocity
+# Initialize velocity, only use for warm up!
 if BATCH:
     VEL_INIT = np.ones((batchSize, 2, RES_X, RES_Y))
     VEL_INIT = np.random.uniform(0.5, 2, (batchSize, 2, RES_X, RES_Y))
