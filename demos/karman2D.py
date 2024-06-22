@@ -15,15 +15,12 @@ from phi.torch.flow import *
 from phi.flow import *
 phi.torch.TORCH.set_default_device("GPU")
 
-sys.path.insert(0, '/home/wangx84@vuds.vanderbilt.edu/Desktop/LDAV/PhiFlow')
-import utils
-
-dataDir = "data/cylVar_inc"
+dataDir = "data/temporary"
 write = True
 readOnly, readIdx = False, 0
 render = False
 writeImageSequence = False
-BATCH = True   
+BATCH = False   
 RANDOM_PARAMS = True
 PREVIEW = True
 batchSize = 3
@@ -58,13 +55,16 @@ gui = "console"
 
 ### PARAMETER SAMPLING
 if RANDOM_PARAMS:
-    CYL_NUM = torch.randint(1, 4, (1,)).item()
-    # CYL_NUM = 1
-    # size
-    CYL_SIZE = random.uniform(0.3, 0.6)
-    # CYL_SIZE = 0.5
+    CYL_NUM = 1
+    CYL_SIZE = 0.5
+
+    # more than one cylinder
+    # CYL_NUM = torch.randint(1, 4, (1,)).item()
+    # CYL_SIZE = random.uniform(0.3, 0.6)
+
     WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
     WALL_LEFT, WALL_RIGHT = (1/8)*(4-CYL_SIZE), (7/8)*(4-CYL_SIZE)
+    
     # locations
     BUFFER_V = 2 * 1/8  # buffer on the top and bottom
     BUFFER_HL = 4 * 1/16  # buffer on the left
@@ -97,6 +97,7 @@ if RANDOM_PARAMS:
     # velocity
     # VEL = random.uniform(0.3, 1.0)
     VEL = 0.5
+    
     # viscosity
     VISC_START = CYL_SIZE * VEL / REYNOLDS_END
     VISC_END = VISC_START
@@ -123,7 +124,14 @@ scene = Scene.create(dataDir) if not readOnly else Scene.at(dataDir, readIdx)
 DOMAIN = dict(x=RES_X, y=RES_Y, bounds=Box[0:WALL_LEFT + CYL_SIZE + WALL_RIGHT, 0:WALL_BOTTOM + CYL_SIZE + WALL_TOP])
 extr = extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.ZERO)
 if BATCH:
-    velocity = StaggeredGrid(math.zeros(batch(batch=batchSize)), extrapolation=extr, **DOMAIN)
+    # velocity = StaggeredGrid(math.zeros(batch(batch=batchSize)), extrapolation=extr, **DOMAIN)
+    
+    # velocity_tensor = math.random_uniform(batch(batch=batchSize))
+    # velocity_tensor.device = "cuda"
+    # velocity_np = velocity_tensor.numpy()
+    # velocity = StaggeredGrid((velocity_np[0],0), extrapolation=extr, **DOMAIN)
+
+    velocity = StaggeredGrid(math.random_normal(batch(batch=batchSize)), extrapolation=extr, **DOMAIN)
 else:
     # velocity = StaggeredGrid((VEL,0), extrapolation=extr, **DOMAIN)
     velocity = StaggeredGrid((0,0), extrapolation=extr, **DOMAIN)
@@ -131,9 +139,15 @@ pressure = None
 BOUNDARY_MASK = StaggeredGrid(HardGeometryMask(Box[:0.2*CYL_SIZE, :]), extrapolation=extr, **DOMAIN)
 RESAMPLING_CENTERED = CenteredGrid(0, extrapolation=extr, **DOMAIN)
 RESAMPLING_STAGGERED = StaggeredGrid(math.zeros(channel(vector=2)), extrapolation=extr, **DOMAIN)
-print("shape of boundary mask", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES).shape)
-print("inside the boundary", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[0,0,0,0])
-print("outside the boundary", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[0,0,100,20])
+
+# print("velocity shape", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES).shape)
+# print("velocity[0] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[0,...])
+# print("velocity[1] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[1,...])
+# print("velocity[2] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[2,...])
+
+# print("shape of boundary mask", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES).shape)
+# print("inside the boundary", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[...,0,0])
+# print("outside the boundary", (BOUNDARY_MASK @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[...,100,20])
 
 # single cylinder
 # OBSTACLE = Obstacle(Sphere(center=(WALL_LEFT + 0.5*CYL_SIZE, WALL_BOTTOM + 0.5*CYL_SIZE), radius=0.5*CYL_SIZE))
@@ -195,6 +209,12 @@ for step in viewer.range(STEPS):
             velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * VEL * VEL_INIT
         else:
             velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (VEL, 0)
+        
+        # print("velocity shape after applying boundary", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES).shape)
+        # print("velocity[0] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[0,...].sum())
+        # print("velocity[1] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[1,...].sum())
+        # print("velocity[2] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[2,...].sum())
+
         velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve("CG-adaptive", 1e-5, 0, max_iterations=2000, x0=pressure))
         velocity = diffuse.explicit(velocity, visc, DT, substeps=int(max(2000*visc,1)))
 
