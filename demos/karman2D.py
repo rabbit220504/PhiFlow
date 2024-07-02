@@ -15,7 +15,7 @@ from phi.torch.flow import *
 from phi.flow import *
 phi.torch.TORCH.set_default_device("GPU")
 
-dataDir = "data/temporary"
+dataDir = "data/simulation"
 write = True
 readOnly, readIdx = False, 0
 render = False
