@@ -15,13 +15,13 @@ from phi.torch.flow import *
 from phi.flow import *
 phi.torch.TORCH.set_default_device("GPU")
 
-dataDir = "data/simulation"
+dataDir = "data/test_surrogate"
 write = True
 readOnly, readIdx = False, 0
 render = False
 writeImageSequence = False
 BATCH = False   
-RANDOM_PARAMS = True
+RANDOM_PARAMS = False
 PREVIEW = True
 batchSize = 3
 
@@ -92,15 +92,15 @@ if RANDOM_PARAMS:
         if iterations == MAX_ITERATIONS:
             print("Failed to find non-overlapping cylinder location")
             sys.exit(1)
+cyl_locations = [(73.43916848301888/255*4,83.15975868701935/127*2)]
+print("cylinder locations determined")
+# velocity
+# VEL = random.uniform(0.3, 1.0)
+VEL = 0.5
 
-    print("cylinder locations determined")
-    # velocity
-    # VEL = random.uniform(0.3, 1.0)
-    VEL = 0.5
-    
-    # viscosity
-    VISC_START = CYL_SIZE * VEL / REYNOLDS_END
-    VISC_END = VISC_START
+# viscosity
+VISC_START = CYL_SIZE * VEL / REYNOLDS_END
+VISC_END = VISC_START
 #
 
 print("--------------------------------------------")
