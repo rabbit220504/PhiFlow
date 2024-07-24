@@ -15,15 +15,14 @@ from phi.torch.flow import *
 from phi.flow import *
 phi.torch.TORCH.set_default_device("GPU")
 
-dataDir = "data/test_surrogate"
+dataDir = "data/600_varCyl"
 write = True
 readOnly, readIdx = False, 0
 render = False
 writeImageSequence = False
 BATCH = False   
-RANDOM_PARAMS = False
+RANDOM_PARAMS = True
 PREVIEW = True
-batchSize = 3
 
 if BATCH:
     NP_NAMES = "batch,vector,x,y"
@@ -33,22 +32,25 @@ else:
     TRANSPOSE = [2,1,0]
 
 ### DEFAULT SIMULATION PARAMETERS
-RES_X, RES_Y = 256, 128
+RES_X, RES_Y = 512, 128
+DOMAIN_X = 8
+DOMAIN_Y = 2
 DT = 0.05
-STEPS, WARMUP = 300, 0
+STEPS, WARMUP = 600, 0
 
 CYL_SIZE = 0.5
-WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
-WALL_LEFT, WALL_RIGHT = (1/8)*(4-CYL_SIZE), (7/8)*(4-CYL_SIZE)
+WALL_TOP, WALL_BOTTOM = (1/2)*(DOMAIN_Y - CYL_SIZE), (1/2)*(DOMAIN_Y - CYL_SIZE)
+WALL_LEFT, WALL_RIGHT = (1/8)*(DOMAIN_X - CYL_SIZE), (7/8)*(DOMAIN_X - CYL_SIZE)
 VEL_IN = 0.5
-VISC_START = 0.0005 # 
-VISC_END = 0.0005
+VISC_START = 5e-4
+VISC_END = 5e-4
+batchSize = 3
 
 VEL = VEL_IN
-# REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
-# REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
-REYNOLDS_START = 600
-REYNOLDS_END = 600
+REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
+REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
+# REYNOLDS_START = 600
+# REYNOLDS_END = 600
 
 gui = "console"
 #
@@ -62,20 +64,20 @@ if RANDOM_PARAMS:
     # CYL_NUM = torch.randint(1, 4, (1,)).item()
     # CYL_SIZE = random.uniform(0.3, 0.6)
 
-    WALL_TOP, WALL_BOTTOM = (1/2)*(2-CYL_SIZE), (1/2)*(2-CYL_SIZE)
-    WALL_LEFT, WALL_RIGHT = (1/8)*(4-CYL_SIZE), (7/8)*(4-CYL_SIZE)
+    WALL_TOP, WALL_BOTTOM = (1/2)*(DOMAIN_Y - CYL_SIZE), (1/2)*(DOMAIN_Y - CYL_SIZE)
+    WALL_LEFT, WALL_RIGHT = (1/8)*(DOMAIN_X - CYL_SIZE), (7/8)*(DOMAIN_X - CYL_SIZE)
     
     # locations
-    BUFFER_V = 2 * 1/8  # buffer on the top and bottom
-    BUFFER_HL = 4 * 1/16  # buffer on the left
-    BUFFER_HR = 4 * 9/16  # buffer on the right
+    BUFFER_V = DOMAIN_Y * 1/8  # buffer on the top and bottom
+    BUFFER_HL = DOMAIN_X * 1/16  # buffer on the left
+    BUFFER_HR = DOMAIN_X * 9/16  # buffer on the right
     MAX_ITERATIONS = 1000
     cyl_locations = []
     for _ in range(CYL_NUM):
         iterations = 0
         while iterations < MAX_ITERATIONS:
-            x = random.uniform(BUFFER_HL+(CYL_SIZE/2), 4 - BUFFER_HR - (CYL_SIZE/2))
-            y = random.uniform(BUFFER_V+(CYL_SIZE/2), 2 - BUFFER_V - (CYL_SIZE/2))
+            x = random.uniform(BUFFER_HL + (CYL_SIZE/2), DOMAIN_X - BUFFER_HR - (CYL_SIZE/2))
+            y = random.uniform(BUFFER_V + (CYL_SIZE/2), DOMAIN_Y - BUFFER_V - (CYL_SIZE/2))
             
             overlap = False
             for loc in cyl_locations:
@@ -92,11 +94,9 @@ if RANDOM_PARAMS:
         if iterations == MAX_ITERATIONS:
             print("Failed to find non-overlapping cylinder location")
             sys.exit(1)
-cyl_locations = [(73.43916848301888/255*4,83.15975868701935/127*2)]
+
+# cyl_locations = [(73.43916848301888/255*4,83.15975868701935/127*2)]
 print("cylinder locations determined")
-# velocity
-# VEL = random.uniform(0.3, 1.0)
-VEL = 0.5
 
 # viscosity
 VISC_START = CYL_SIZE * VEL / REYNOLDS_END
@@ -215,7 +215,7 @@ for step in viewer.range(STEPS):
         # print("velocity[1] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[1,...].sum())
         # print("velocity[2] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[2,...].sum())
 
-        velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve("CG-adaptive", 1e-5, 0, max_iterations=2000, x0=pressure))
+        velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve("CG-adaptive", 1e-5, 0, max_iterations=4000, x0=pressure))
         velocity = diffuse.explicit(velocity, visc, DT, substeps=int(max(2000*visc,1)))
 
         if PREVIEW:
