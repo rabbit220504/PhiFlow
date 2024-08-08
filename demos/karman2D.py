@@ -209,13 +209,8 @@ for step in viewer.range(STEPS):
             velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * VEL * VEL_INIT
         else:
             velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (VEL, 0)
-        
-        # print("velocity shape after applying boundary", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES).shape)
-        # print("velocity[0] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[0,...].sum())
-        # print("velocity[1] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[1,...].sum())
-        # print("velocity[2] values", (velocity @ RESAMPLING_CENTERED).values.numpy(NP_NAMES)[2,...].sum())
 
-        velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve("CG-adaptive", 1e-5, 0, max_iterations=4000, x0=pressure))
+        velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('auto', relative_tolerance=1e-5, absolute_tolerance=1e-5, max_iterations=5000, x0=pressure))
         velocity = diffuse.explicit(velocity, visc, DT, substeps=int(max(2000*visc,1)))
 
         if PREVIEW:
