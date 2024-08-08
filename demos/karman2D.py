@@ -15,7 +15,7 @@ from phi.torch.flow import *
 from phi.flow import *
 phi.torch.TORCH.set_default_device("GPU")
 
-dataDir = "data/600_varCyl"
+dataDir = "data/600_varCyl_perio"
 write = True
 readOnly, readIdx = False, 0
 render = False
@@ -122,7 +122,7 @@ print("--------------------------------------------\n")
 scene = Scene.create(dataDir) if not readOnly else Scene.at(dataDir, readIdx)
 
 DOMAIN = dict(x=RES_X, y=RES_Y, bounds=Box[0:WALL_LEFT + CYL_SIZE + WALL_RIGHT, 0:WALL_BOTTOM + CYL_SIZE + WALL_TOP])
-extr = extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.ZERO)
+extr = extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.BOUNDARY)
 if BATCH:
     # velocity = StaggeredGrid(math.zeros(batch(batch=batchSize)), extrapolation=extr, **DOMAIN)
     
@@ -210,7 +210,7 @@ for step in viewer.range(STEPS):
         else:
             velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (VEL, 0)
 
-        velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('auto', relative_tolerance=1e-5, absolute_tolerance=1e-5, max_iterations=5000, x0=pressure))
+        velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('auto', relative_tolerance=1e-5, absolute_tolerance=0, max_iterations=5000, x0=pressure))
         velocity = diffuse.explicit(velocity, visc, DT, substeps=int(max(2000*visc,1)))
 
         if PREVIEW:
