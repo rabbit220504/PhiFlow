@@ -95,7 +95,7 @@ if RANDOM_PARAMS:
             print("Failed to find non-overlapping cylinder location")
             sys.exit(1)
 
-# cyl_locations = [(73.43916848301888/255*4,83.15975868701935/127*2)]
+cyl_locations = [(100/511*4, 64/127*2)]
 print("cylinder locations determined")
 
 # viscosity
