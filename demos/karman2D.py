@@ -122,7 +122,7 @@ print("--------------------------------------------\n")
 scene = Scene.create(dataDir) if not readOnly else Scene.at(dataDir, readIdx)
 
 DOMAIN = dict(x=RES_X, y=RES_Y, bounds=Box[0:WALL_LEFT + CYL_SIZE + WALL_RIGHT, 0:WALL_BOTTOM + CYL_SIZE + WALL_TOP])
-extr = extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.BOUNDARY)
+extr = extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.ZERO)
 if BATCH:
     # velocity = StaggeredGrid(math.zeros(batch(batch=batchSize)), extrapolation=extr, **DOMAIN)
     
