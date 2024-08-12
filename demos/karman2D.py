@@ -15,14 +15,66 @@ from phi.torch.flow import *
 from phi.flow import *
 phi.torch.TORCH.set_default_device("GPU")
 
-dataDir = "data/600_varCyl_perio"
-write = True
-readOnly, readIdx = False, 0
-render = False
-writeImageSequence = False
-BATCH = False   
-RANDOM_PARAMS = True
-PREVIEW = True
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Simulation of fluid dynamics around a cylindrical obstacle.")
+    parser.add_argument('--dataDir', type=str, default="data/600_varCyl_boundary", help='Directory for data storage.')
+    parser.add_argument('--write', action='store_true', default=True)
+    parser.add_argument('--readOnly', action='store_true', default=False)
+    parser.add_argument('--readIdx', type=int, default=0)
+    parser.add_argument('--render', action='store_true', default=False)
+    parser.add_argument('--writeImageSequence', action='store_true', default=False)
+    parser.add_argument('--batch', action='store_true', default=False)
+    parser.add_argument('--randomParams', action='store_true', default=True)
+    parser.add_argument('--preview', action='store_true', default=True)
+    parser.add_argument('--res_x', type=int, default=512, help='Resolution in x-direction.')
+    parser.add_argument('--res_y', type=int, default=128, help='Resolution in y-direction.')
+    parser.add_argument('--domain_x', type=float, default=8.0, help='Domain size in x-direction.')
+    parser.add_argument('--domain_y', type=float, default=2.0, help='Domain size in y-direction.')
+    parser.add_argument('--dt', type=float, default=0.05)
+    parser.add_argument('--steps', type=int, default=600, help='Number of simulation steps.')
+    parser.add_argument('--warmup', type=int, default=0, help='Number of warmup steps.')
+    parser.add_argument('--cyl_size', type=float, default=0.5, help='Cylinder size.')
+    parser.add_argument('--vel_in', type=float, default=0.5, help='Inlet velocity.')
+    parser.add_argument('--visc_start', type=float, default=5e-4, help='Initial viscosity.')
+    parser.add_argument('--visc_end', type=float, default=5e-4, help='Final viscosity.')
+    parser.add_argument('--reynolds_start', type=int, default=100, help='Initial Reynolds number.')
+    parser.add_argument('--reynolds_end', type=int, default=100, help='Final Reynolds number.')
+    parser.add_argument('--batchSize', type=int, default=3, help='Batch size for simulation.')
+
+    return parser.parse_args()
+
+args = parse_args()
+dataDir = args.dataDir
+write = args.write
+readOnly, readIdx = args.readOnly, args.readIdx
+render = args.render
+writeImageSequence = args.writeImageSequence
+BATCH = args.batch
+RANDOM_PARAMS = args.randomParams
+PREVIEW = args.preview
+RES_X, RES_Y = args.res_x, args.res_y
+DOMAIN_X = args.domain_x
+DOMAIN_Y = args.domain_y
+DT = args.dt
+STEPS, WARMUP = args.steps, args.warmup
+CYL_SIZE = args.cyl_size
+WALL_TOP, WALL_BOTTOM = (1/2)*(DOMAIN_Y - CYL_SIZE), (1/2)*(DOMAIN_Y - CYL_SIZE)
+WALL_LEFT, WALL_RIGHT = (1/8)*(DOMAIN_X - CYL_SIZE), (7/8)*(DOMAIN_X - CYL_SIZE)
+VEL_IN = args.vel_in
+VEL = VEL_IN
+VISC_START = args.visc_start
+VISC_END = args.visc_end
+batchSize = args.batchSize
+REYNOLDS_START = args.reynolds_start
+REYNOLDS_END = args.reynolds_end
+
+if REYNOLDS_START == 0: # if don't specify the Reynolds number, calculate it
+    REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
+    REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
+
+gui = "console"
 
 if BATCH:
     NP_NAMES = "batch,vector,x,y"
@@ -30,29 +82,6 @@ if BATCH:
 else:
     NP_NAMES = "vector,x,y"
     TRANSPOSE = [2,1,0]
-
-### DEFAULT SIMULATION PARAMETERS
-RES_X, RES_Y = 512, 128
-DOMAIN_X = 8
-DOMAIN_Y = 2
-DT = 0.05
-STEPS, WARMUP = 600, 0
-
-CYL_SIZE = 0.5
-WALL_TOP, WALL_BOTTOM = (1/2)*(DOMAIN_Y - CYL_SIZE), (1/2)*(DOMAIN_Y - CYL_SIZE)
-WALL_LEFT, WALL_RIGHT = (1/8)*(DOMAIN_X - CYL_SIZE), (7/8)*(DOMAIN_X - CYL_SIZE)
-VEL_IN = 0.5
-VISC_START = 5e-4
-VISC_END = 5e-4
-batchSize = 3
-
-VEL = VEL_IN
-REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
-REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
-# REYNOLDS_START = 600
-# REYNOLDS_END = 600
-
-gui = "console"
 #
 
 ### PARAMETER SAMPLING
@@ -60,7 +89,7 @@ if RANDOM_PARAMS:
     CYL_NUM = 1
     CYL_SIZE = 0.5
 
-    # more than one cylinder
+    # uncomment this when more than one cylinder is desired
     # CYL_NUM = torch.randint(1, 4, (1,)).item()
     # CYL_SIZE = random.uniform(0.3, 0.6)
 
@@ -95,7 +124,7 @@ if RANDOM_PARAMS:
             print("Failed to find non-overlapping cylinder location")
             sys.exit(1)
 
-cyl_locations = [(100/511*4, 64/127*2)]
+# cyl_locations = [(100/511*4, 64/127*2)]
 print("cylinder locations determined")
 
 # viscosity
