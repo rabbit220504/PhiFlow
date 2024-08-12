@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument('--render', action='store_true', default=False)
     parser.add_argument('--writeImageSequence', action='store_true', default=False)
     parser.add_argument('--batch', action='store_true', default=False)
-    parser.add_argument('--randomParams', action='store_true', default=True)
+    parser.add_argument('--randomParams', action='store_true', default=False)
     parser.add_argument('--preview', action='store_true', default=True)
     parser.add_argument('--res_x', type=int, default=512, help='Resolution in x-direction.')
     parser.add_argument('--res_y', type=int, default=128, help='Resolution in y-direction.')
@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument('--steps', type=int, default=600, help='Number of simulation steps.')
     parser.add_argument('--warmup', type=int, default=0, help='Number of warmup steps.')
     parser.add_argument('--cyl_size', type=float, default=0.5, help='Cylinder size.')
+    parser.add_argument('--cyl_num', type=int, default=1, help='Number of cylinders.')
     parser.add_argument('--vel_in', type=float, default=0.5, help='Inlet velocity.')
     parser.add_argument('--visc_start', type=float, default=5e-4, help='Initial viscosity.')
     parser.add_argument('--visc_end', type=float, default=5e-4, help='Final viscosity.')
@@ -60,6 +61,7 @@ DOMAIN_Y = args.domain_y
 DT = args.dt
 STEPS, WARMUP = args.steps, args.warmup
 CYL_SIZE = args.cyl_size
+CYL_NUM = args.cyl_num
 WALL_TOP, WALL_BOTTOM = (1/2)*(DOMAIN_Y - CYL_SIZE), (1/2)*(DOMAIN_Y - CYL_SIZE)
 WALL_LEFT, WALL_RIGHT = (1/8)*(DOMAIN_X - CYL_SIZE), (7/8)*(DOMAIN_X - CYL_SIZE)
 VEL_IN = args.vel_in
@@ -86,9 +88,6 @@ else:
 
 ### PARAMETER SAMPLING
 if RANDOM_PARAMS:
-    CYL_NUM = 1
-    CYL_SIZE = 0.5
-
     # uncomment this when more than one cylinder is desired
     # CYL_NUM = torch.randint(1, 4, (1,)).item()
     # CYL_SIZE = random.uniform(0.3, 0.6)
@@ -124,7 +123,8 @@ if RANDOM_PARAMS:
             print("Failed to find non-overlapping cylinder location")
             sys.exit(1)
 
-# cyl_locations = [(100/511*4, 64/127*2)]
+if not RANDOM_PARAMS:
+    cyl_locations = [((1/8) * DOMAIN_X, (1/2) * DOMAIN_Y)]
 print("cylinder locations determined")
 
 # viscosity
@@ -140,9 +140,8 @@ print("| Cylinder Size: %1.3f" % (CYL_SIZE))
 print("| Inflow Velocity: %1.3f" % (VEL))
 print("| Fluid Viscosity: (%1.8f, %1.8f)" % (VISC_START, VISC_END))
 print("| REYNOLDS NUMBER: (%d, %d)" % (REYNOLDS_START, REYNOLDS_END))
-if RANDOM_PARAMS:
-    print("| Cylinder Number: %d" % (CYL_NUM))
-    print("| Cylinder Locations: %s" % (cyl_locations))
+print("| Cylinder Number: %d" % (CYL_NUM))
+print("| Cylinder Locations: %s" % (cyl_locations))
 print("--------------------------------------------\n")
 
 
@@ -151,7 +150,7 @@ print("--------------------------------------------\n")
 scene = Scene.create(dataDir) if not readOnly else Scene.at(dataDir, readIdx)
 
 DOMAIN = dict(x=RES_X, y=RES_Y, bounds=Box[0:WALL_LEFT + CYL_SIZE + WALL_RIGHT, 0:WALL_BOTTOM + CYL_SIZE + WALL_TOP])
-extr = extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.ZERO)
+extr = extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.BOUNDARY)
 if BATCH:
     # velocity = StaggeredGrid(math.zeros(batch(batch=batchSize)), extrapolation=extr, **DOMAIN)
     
