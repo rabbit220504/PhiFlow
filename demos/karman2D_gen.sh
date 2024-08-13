@@ -1,8 +1,14 @@
-# scriptPath="demos/karman2D.py"
 scriptPath="PhiFlow/demos/karman2D.py"
 
-# python $scriptPath OUTDIR  RES_X RES_Y DT  STEPS WARMUP  CYL_SIZE VEL VISC  REYNOLDS_START REYNOLDS_END
 for ((i=1; i<=50; i++))
 do
-    python $scriptPath
+    rey=$(shuf -i 100-1000 -n 1)
+    echo "Reynolds number: $rey" >> 'data/600_varCyl_boundary/karman2D_gen.log'
+    python $scriptPath \
+    --dataDir 'data/600_varCyl_boundary' \
+    --randomParams \
+    --reynolds_start $rey  \
+    --reynolds_end $rey  \
+    --steps 600
+
 done

@@ -66,13 +66,13 @@ WALL_TOP, WALL_BOTTOM = (1/2)*(DOMAIN_Y - CYL_SIZE), (1/2)*(DOMAIN_Y - CYL_SIZE)
 WALL_LEFT, WALL_RIGHT = (1/8)*(DOMAIN_X - CYL_SIZE), (7/8)*(DOMAIN_X - CYL_SIZE)
 VEL_IN = args.vel_in
 VEL = VEL_IN
-VISC_START = args.visc_start
-VISC_END = args.visc_end
 batchSize = args.batchSize
 REYNOLDS_START = args.reynolds_start
 REYNOLDS_END = args.reynolds_end
 
-if REYNOLDS_START == 0: # if don't specify the Reynolds number, calculate it
+if REYNOLDS_START == 0 or REYNOLDS_END == 0: # if don't specify the Reynolds number, calculate it
+    VISC_START = args.visc_start
+    VISC_END = args.visc_end
     REYNOLDS_START = (VEL * CYL_SIZE) / VISC_START
     REYNOLDS_END = (VEL * CYL_SIZE) / VISC_END
 
