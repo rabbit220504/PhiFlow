@@ -19,7 +19,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Simulation of fluid dynamics around a cylindrical obstacle.")
-    parser.add_argument('--dataDir', type=str, default="data/600_varCyl_boundary", help='Directory for data storage.')
+    parser.add_argument('--dataDir', type=str, default="data/600_varCyl_boundary_four_1000", help='Directory for data storage.')
     parser.add_argument('--write', action='store_true', default=True)
     parser.add_argument('--readOnly', action='store_true', default=False)
     parser.add_argument('--readIdx', type=int, default=0)
@@ -37,11 +37,13 @@ def parse_args():
     parser.add_argument('--warmup', type=int, default=0, help='Number of warmup steps.')
     parser.add_argument('--cyl_size', type=float, default=0.5, help='Cylinder size.')
     parser.add_argument('--cyl_num', type=int, default=1, help='Number of cylinders.')
+    parser.add_argument('--cyl_x', type=float, default=1/8, help='Cylinder x-coordinate.')
+    parser.add_argument('--cyl_y', type=float, default=1/2, help='Cylinder y-coordinate.')
     parser.add_argument('--vel_in', type=float, default=0.5, help='Inlet velocity.')
     parser.add_argument('--visc_start', type=float, default=5e-4, help='Initial viscosity.')
     parser.add_argument('--visc_end', type=float, default=5e-4, help='Final viscosity.')
-    parser.add_argument('--reynolds_start', type=int, default=100, help='Initial Reynolds number.')
-    parser.add_argument('--reynolds_end', type=int, default=100, help='Final Reynolds number.')
+    parser.add_argument('--reynolds_start', type=int, default=1000, help='Initial Reynolds number.')
+    parser.add_argument('--reynolds_end', type=int, default=1000, help='Final Reynolds number.')
     parser.add_argument('--batchSize', type=int, default=3, help='Batch size for simulation.')
 
     return parser.parse_args()
@@ -124,7 +126,7 @@ if RANDOM_PARAMS:
             sys.exit(1)
 
 if not RANDOM_PARAMS:
-    cyl_locations = [((1/8) * DOMAIN_X, (1/2) * DOMAIN_Y)]
+    cyl_locations = [(args.cyl_x * DOMAIN_X, args.cyl_y * DOMAIN_Y + 1e-2)]
 print("cylinder locations determined")
 
 # viscosity
